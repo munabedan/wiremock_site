@@ -1,0 +1,5 @@
+mkdocs-material
+mkdocs-monorepo-plugin
+mkdocs-breadcrumbs-plugin
+mkdocs-macros-plugin
+mkdocs-redirects
