@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-22.04
     steps:
@@ -17,41 +16,62 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "true"
+
       - name: Setup Ruby
-        uses: ruby/setup-ruby@4a9ddd6f338a97768b8006bf671dfbad383215f4 # v1.207.0
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.7.2' # Not needed with a .ruby-version file
+          ruby-version: '2.7.2'
           bundler: '2.4.10'
-          bundler-cache: false # runs 'bundle install' and caches installed gems automatically
-          cache-version: 3 # Increment this number if you need to re-download cached gems
+          bundler-cache: false
+          cache-version: 3
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v3
-      - name:  Update RubyGems and Co
+
+      - name: Update RubyGems and Co
         run: gem update
+
       - name: Install Ruby Bundles
         run: bundle install
-      - name: Build with Jekyll
-        # Outputs to the './_site' directory by default
+
+      - name: Build Jekyll root site
         run: bundle exec jekyll build --config '_config.yml' --baseurl "${{ steps.pages.outputs.base_path }}"
         env:
           JEKYLL_ENV: development
-      - name: Build 2.x with Jekyll
-        # Outputs to the './_site' directory by default
+
+      - name: Build Jekyll 2.x
         run: |
           cd .submodules/wiremock.org-2.x
           bundle exec jekyll build --config '../../_config.yml,../../_config-2.x.yml' --baseurl "${{ steps.pages.outputs.base_path }}/2.x"
         env:
           JEKYLL_ENV: development
-# TODO: Add 3.x build? It is just a config file tweak, so maybe better to not slowdown for now
 
+      # Add MkDocs build validation
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
 
-# TODO: Uncomment when cleaned up (if ever)
-#      - name: Validate HTML and links
-#        uses: anishathalye/proof-html@v2
-#        with:
-#          directory: ./_site
-#          enforce_https: false
+      - name: Cache MkDocs deps
+        run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        with:
+          key: mkdocs-material-${{ env.cache_id }}
+          path: ~/.cache
+          restore-keys: |
+            mkdocs-material-
+
+      - name: Install MkDocs dependencies
+        working-directory: ./mkdocs_site
+        run: pip install -r requirements.txt
+
+      - name: Build MkDocs site
+        working-directory: ./mkdocs_site
+        run: mkdocs build --site-dir ../_site/docs
+
       - name: Upload artifact
-        # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
